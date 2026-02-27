@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arabic-pdf-translator"
+version = "1.0.0"
+description = "Arabic PDF OCR & Translation with multi-engine ensemble selection"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+dependencies = [
+    "PyMuPDF>=1.23.0",
+    "Pillow>=10.0",
+    "numpy>=1.24",
+    "opencv-python-headless>=4.8",
+    "pytesseract>=0.3.10",
+    "easyocr>=1.7",
+    "anthropic>=0.39.0",
+    "httpx>=0.25",
+]
+
+[project.optional-dependencies]
+all = [
+    "openai>=1.40",
+    "deepl>=1.16",
+    "google-cloud-translate>=3.12",
+    "paddleocr>=2.7",
+    "paddlepaddle>=2.5",
+]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.scripts]
+arabic-pdf-translate = "arabic_pdf_translator.main:main"
+
+[tool.setuptools.packages.find]
+include = ["arabic_pdf_translator*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
