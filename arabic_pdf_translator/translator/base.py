@@ -64,6 +64,18 @@ class BaseTranslator(ABC):
     ) -> TranslationResult:
         """Translate and record latency."""
         start = time.time()
+
+        # Validate input before making API call
+        if not text or not text.strip():
+            return TranslationResult(
+                method=self.method_name,
+                source_text=text or "",
+                translated_text="",
+                confidence=0.0,
+                error="Empty text provided for translation",
+                latency_seconds=time.time() - start,
+            )
+
         try:
             result = self.translate(text, source_lang, target_lang, context)
         except Exception as e:

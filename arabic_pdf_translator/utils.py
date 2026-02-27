@@ -20,13 +20,61 @@ def setup_logging(level: int = logging.INFO) -> None:
     )
 
 
+def _is_retryable_error(exc: Exception) -> bool:
+    """Check if an exception represents a retryable error (not a 4xx client error)."""
+    # Anthropic SDK errors
+    try:
+        import anthropic
+        if isinstance(exc, anthropic.BadRequestError):
+            return False
+        if isinstance(exc, anthropic.AuthenticationError):
+            return False
+        if isinstance(exc, anthropic.PermissionDeniedError):
+            return False
+        if isinstance(exc, anthropic.NotFoundError):
+            return False
+        if isinstance(exc, anthropic.UnprocessableEntityError):
+            return False
+    except ImportError:
+        pass
+
+    # OpenAI SDK errors
+    try:
+        import openai
+        if isinstance(exc, openai.BadRequestError):
+            return False
+        if isinstance(exc, openai.AuthenticationError):
+            return False
+        if isinstance(exc, openai.PermissionDeniedError):
+            return False
+        if isinstance(exc, openai.NotFoundError):
+            return False
+        if isinstance(exc, openai.UnprocessableEntityError):
+            return False
+    except ImportError:
+        pass
+
+    # HTTP response errors (httpx, requests)
+    status_code = getattr(exc, 'status_code', None) or getattr(
+        getattr(exc, 'response', None), 'status_code', None
+    )
+    if status_code is not None and 400 <= status_code < 500:
+        return False
+
+    return True
+
+
 def retry_with_backoff(
     max_retries: int = 3,
     base_delay: float = 1.0,
     max_delay: float = 30.0,
     exceptions: tuple = (Exception,),
 ) -> Callable:
-    """Decorator for retrying API calls with exponential backoff."""
+    """Decorator for retrying API calls with exponential backoff.
+
+    Client errors (4xx) are raised immediately without retrying since
+    they indicate a problem with the request that won't be fixed by retrying.
+    """
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
@@ -37,6 +85,13 @@ def retry_with_backoff(
                     return func(*args, **kwargs)
                 except exceptions as e:
                     last_exception = e
+                    if not _is_retryable_error(e):
+                        logger.error(
+                            "%s failed with non-retryable error: %s",
+                            func.__name__,
+                            str(e),
+                        )
+                        raise
                     if attempt < max_retries:
                         delay = min(base_delay * (2 ** attempt), max_delay)
                         logger.warning(

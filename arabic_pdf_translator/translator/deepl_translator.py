@@ -58,6 +58,14 @@ class DeepLTranslator(BaseTranslator):
     def method_name(self) -> str:
         return "deepl"
 
+    # DeepL supported source languages (as of 2025).
+    # Arabic is NOT supported as a source language by DeepL.
+    SUPPORTED_SOURCE_LANGS = {
+        "BG", "CS", "DA", "DE", "EL", "EN", "ES", "ET", "FI", "FR",
+        "HU", "ID", "IT", "JA", "KO", "LT", "LV", "NB", "NL", "PL",
+        "PT", "RO", "RU", "SK", "SL", "SV", "TR", "UK", "ZH",
+    }
+
     @retry_with_backoff(max_retries=3, base_delay=1.5, exceptions=(Exception,))
     def translate(
         self,
@@ -72,21 +80,31 @@ class DeepLTranslator(BaseTranslator):
         deepl_source = DEEPL_LANG_MAP.get(source_lang, source_lang.upper())
         deepl_target = DEEPL_LANG_MAP.get(target_lang, "EN-US")
 
+        # Validate that DeepL supports the source language
+        if deepl_source not in self.SUPPORTED_SOURCE_LANGS:
+            logger.warning(
+                "DeepL does not support '%s' as a source language. "
+                "Omitting source_lang to let DeepL auto-detect.",
+                deepl_source,
+            )
+            deepl_source = None  # Let DeepL auto-detect
+
         if self._backend == "deepl_official":
             return self._translate_official(text, deepl_source, deepl_target, context)
         else:
             return self._translate_http(text, deepl_source, deepl_target, context)
 
     def _translate_official(
-        self, text: str, source_lang: str, target_lang: str, context: Optional[str]
+        self, text: str, source_lang: Optional[str], target_lang: str, context: Optional[str]
     ) -> TranslationResult:
         """Use official DeepL Python library."""
         kwargs = {
             "text": text,
-            "source_lang": source_lang,
             "target_lang": target_lang,
             "preserve_formatting": True,
         }
+        if source_lang:
+            kwargs["source_lang"] = source_lang
         if context:
             kwargs["context"] = context
 
@@ -95,7 +113,7 @@ class DeepLTranslator(BaseTranslator):
         translated = result.text
         # DeepL reports detected language — use for confidence
         confidence = 0.85
-        if result.detected_source_lang.upper() == source_lang.upper():
+        if source_lang and result.detected_source_lang.upper() == source_lang.upper():
             confidence = 0.88
 
         logger.info("DeepL official: received %d chars", len(translated))
@@ -112,7 +130,7 @@ class DeepLTranslator(BaseTranslator):
         )
 
     def _translate_http(
-        self, text: str, source_lang: str, target_lang: str, context: Optional[str]
+        self, text: str, source_lang: Optional[str], target_lang: str, context: Optional[str]
     ) -> TranslationResult:
         """Use DeepL REST API directly."""
         try:
@@ -130,10 +148,11 @@ class DeepLTranslator(BaseTranslator):
 
         data = {
             "text": [text],
-            "source_lang": source_lang,
             "target_lang": target_lang,
             "preserve_formatting": "1",
         }
+        if source_lang:
+            data["source_lang"] = source_lang
         if context:
             data["context"] = context
 
@@ -163,7 +182,7 @@ class DeepLTranslator(BaseTranslator):
 
         translated = translations[0].get("text", "")
         detected = translations[0].get("detected_source_language", "")
-        confidence = 0.85 if detected.upper() == source_lang.upper() else 0.80
+        confidence = 0.85 if source_lang and detected.upper() == source_lang.upper() else 0.80
 
         logger.info("DeepL HTTP: received %d chars", len(translated))
 

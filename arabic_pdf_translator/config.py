@@ -81,8 +81,8 @@ class TranslationConfig:
     force_multi_method: bool = False
 
     # Claude model for translation and judging
-    claude_model: str = "claude-sonnet-4-20250514"
-    claude_judge_model: str = "claude-sonnet-4-20250514"
+    claude_model: str = "claude-sonnet-4-6"
+    claude_judge_model: str = "claude-sonnet-4-6"
 
     # OpenAI model
     openai_model: str = "gpt-4o"

@@ -147,7 +147,7 @@ Environment variables for API keys:
     parser.add_argument(
         "--claude-model",
         type=str,
-        default="claude-sonnet-4-20250514",
+        default="claude-sonnet-4-6",
         help="Claude model for translation",
     )
     parser.add_argument(

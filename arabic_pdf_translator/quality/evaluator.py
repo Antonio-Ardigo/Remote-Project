@@ -104,7 +104,7 @@ class QualityEvaluator:
     def __init__(
         self,
         anthropic_api_key: Optional[str] = None,
-        judge_model: str = "claude-sonnet-4-20250514",
+        judge_model: str = "claude-sonnet-4-6",
     ):
         self.anthropic_api_key = anthropic_api_key
         self.judge_model = judge_model
