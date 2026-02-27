@@ -100,11 +100,17 @@ class EasyOCREngine:
 
     def extract(self, image: np.ndarray) -> OCRResult:
         """Extract Arabic text using EasyOCR."""
-        results = self.reader.readtext(image, detail=1, paragraph=True)
+        # First get detailed results (without paragraph merging) for confidence scores
+        detail_results = self.reader.readtext(image, detail=1, paragraph=False)
 
         texts = []
         confidences = []
-        for bbox, text, conf in results:
+        for item in detail_results:
+            if len(item) == 3:
+                bbox, text, conf = item
+            else:
+                bbox, text = item
+                conf = 0.5  # default confidence when not provided
             text = text.strip()
             if text:
                 texts.append(text)

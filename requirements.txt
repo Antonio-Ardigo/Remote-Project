@@ -1,13 +1,24 @@
-# Quantum Computing with Qiskit
-qiskit>=1.0,<2.0
-qiskit-aer>=0.13
-qiskit-visualization>=0.1
+# =============================================================
+# Arabic PDF OCR & Translation — Dependencies
+# =============================================================
 
-# Jupyter Notebook support
-jupyter>=1.0
-notebook>=7.0
-ipykernel>=6.0
+# --- Core (required) ---
+PyMuPDF>=1.23.0             # PDF rendering to images
+Pillow>=10.0                # Image handling and fallback preprocessing
+numpy>=1.24                 # Array operations for image processing
 
-# Visualization dependencies
-matplotlib>=3.7
-pylatexenc>=2.10
+# --- OCR engines (install at least one) ---
+pytesseract>=0.3.10         # Tesseract OCR wrapper
+easyocr>=1.7                # EasyOCR (deep learning OCR)
+
+# --- Image preprocessing ---
+opencv-python-headless>=4.8 # OpenCV for image preprocessing (headless for servers)
+
+# --- Translation APIs (install based on which methods you use) ---
+anthropic>=0.39.0           # Anthropic Claude API
+openai>=1.40                # OpenAI GPT API
+deepl>=1.16                 # DeepL official Python library
+httpx>=0.25                 # HTTP client (used by Google Translate fallback)
+
+# --- Utilities ---
+requests>=2.31              # HTTP fallback
