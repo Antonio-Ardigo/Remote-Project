@@ -104,7 +104,7 @@ Environment variables for API keys:
         "--ocr-engines",
         type=str,
         default="easyocr",
-        help="OCR engines to use (comma-separated: easyocr,tesseract,paddleocr). Default: easyocr",
+        help="OCR engines (comma-separated: easyocr,tesseract,paddleocr,claude_vision,qari). Default: easyocr",
     )
     parser.add_argument(
         "--no-preprocess",
@@ -205,6 +205,9 @@ def main() -> int:
         "tesseract": OCREngine.TESSERACT,
         "easyocr": OCREngine.EASYOCR,
         "paddleocr": OCREngine.PADDLEOCR,
+        "claude_vision": OCREngine.CLAUDE_VISION,
+        "openai_vision": OCREngine.OPENAI_VISION,
+        "qari": OCREngine.QARI,
     }
     ocr_engines = [
         engine_map[e.strip()]

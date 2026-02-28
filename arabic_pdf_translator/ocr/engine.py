@@ -197,6 +197,237 @@ class PaddleOCREngine:
         )
 
 
+class ClaudeVisionOCR:
+    """Claude Vision API for Arabic text extraction (especially handwriting)."""
+
+    def __init__(self, config: OCRConfig):
+        try:
+            import anthropic
+            self.client = anthropic.Anthropic()
+        except ImportError:
+            raise ImportError(
+                "anthropic SDK is required for Claude Vision OCR. "
+                "Install with: pip install anthropic"
+            )
+        self.config = config
+        self.model = "claude-sonnet-4-20250514"
+
+    def extract(self, image: np.ndarray) -> OCRResult:
+        """Extract Arabic text using Claude Vision."""
+        import base64
+        import cv2
+
+        success, buffer = cv2.imencode('.png', image)
+        if not success:
+            raise RuntimeError("Failed to encode image for Claude Vision")
+        image_b64 = base64.b64encode(buffer).decode('utf-8')
+
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=4096,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": image_b64,
+                        }
+                    },
+                    {
+                        "type": "text",
+                        "text": (
+                            "Extract ALL Arabic text visible in this image. "
+                            "Include both printed and handwritten text. "
+                            "Read right-to-left carefully. "
+                            "Preserve line breaks and paragraph structure. "
+                            "Output ONLY the Arabic text, nothing else. "
+                            "If text is partially illegible, use your best reading."
+                        ),
+                    }
+                ]
+            }]
+        )
+
+        text = response.content[0].text.strip()
+        confidence = 0.90 if text else 0.0
+        if response.stop_reason == "end_turn":
+            confidence = 0.92
+
+        logger.info(
+            "Claude Vision OCR: extracted %d chars, confidence %.2f",
+            len(text), confidence,
+        )
+
+        return OCRResult(
+            engine="claude_vision",
+            text=text,
+            confidence=confidence,
+            word_confidences=[confidence],
+            raw_data={"model": self.model, "stop_reason": response.stop_reason},
+        )
+
+
+class OpenAIVisionOCR:
+    """GPT-4o Vision API for Arabic text extraction (especially handwriting)."""
+
+    def __init__(self, config: OCRConfig):
+        try:
+            import openai
+            self.client = openai.OpenAI()
+        except ImportError:
+            raise ImportError(
+                "openai SDK is required for OpenAI Vision OCR. "
+                "Install with: pip install openai"
+            )
+        self.config = config
+        self.model = "gpt-4o"
+
+    def extract(self, image: np.ndarray) -> OCRResult:
+        """Extract Arabic text using GPT-4o Vision."""
+        import base64
+        import cv2
+
+        success, buffer = cv2.imencode('.png', image)
+        if not success:
+            raise RuntimeError("Failed to encode image for OpenAI Vision")
+        image_b64 = base64.b64encode(buffer).decode('utf-8')
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            max_tokens=4096,
+            temperature=0.1,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{image_b64}",
+                        }
+                    },
+                    {
+                        "type": "text",
+                        "text": (
+                            "Extract ALL Arabic text visible in this image. "
+                            "Include both printed and handwritten text. "
+                            "Read right-to-left carefully. "
+                            "Preserve line breaks and paragraph structure. "
+                            "Output ONLY the Arabic text, nothing else. "
+                            "If text is partially illegible, use your best reading."
+                        ),
+                    }
+                ]
+            }]
+        )
+
+        text = response.choices[0].message.content.strip()
+        finish_reason = response.choices[0].finish_reason
+        confidence = 0.88 if text else 0.0
+        if finish_reason == "stop":
+            confidence = 0.90
+
+        logger.info(
+            "OpenAI Vision OCR: extracted %d chars, confidence %.2f",
+            len(text), confidence,
+        )
+
+        return OCRResult(
+            engine="openai_vision",
+            text=text,
+            confidence=confidence,
+            word_confidences=[confidence],
+            raw_data={"model": self.model, "finish_reason": finish_reason},
+        )
+
+
+class QariOCR:
+    """NAMAA Qari-OCR for Arabic handwriting recognition (local 2B VLM)."""
+
+    MODEL_ID = "NAMAA-Space/Qari-OCR-v0.3-VL-2B-Instruct"
+
+    def __init__(self, config: OCRConfig):
+        try:
+            from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+            import torch
+        except ImportError:
+            raise ImportError(
+                "transformers and torch are required for Qari-OCR. "
+                "Install with: pip install transformers torch qwen-vl-utils"
+            )
+
+        logger.info("Loading Qari-OCR model (first run downloads ~4GB)...")
+        self.torch = torch
+        self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+            self.MODEL_ID,
+            torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=True,
+        )
+        self.processor = AutoProcessor.from_pretrained(self.MODEL_ID)
+        self.config = config
+        logger.info("Qari-OCR model loaded.")
+
+    def extract(self, image: np.ndarray) -> OCRResult:
+        """Extract Arabic text using Qari-OCR VLM."""
+        from PIL import Image
+
+        if len(image.shape) == 2:
+            pil_image = Image.fromarray(image, mode='L').convert('RGB')
+        else:
+            pil_image = Image.fromarray(image)
+
+        messages = [
+            {"role": "user", "content": [
+                {"type": "image", "image": pil_image},
+                {"type": "text", "text": "Extract all Arabic text from this image exactly as written."}
+            ]}
+        ]
+
+        try:
+            from qwen_vl_utils import process_vision_info
+            text_prompt = self.processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            image_inputs, video_inputs = process_vision_info(messages)
+            inputs = self.processor(
+                text=[text_prompt], images=image_inputs, videos=video_inputs,
+                padding=True, return_tensors="pt"
+            )
+        except ImportError:
+            text_prompt = self.processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            inputs = self.processor(
+                text=[text_prompt], images=[pil_image],
+                padding=True, return_tensors="pt"
+            )
+
+        with self.torch.no_grad():
+            output_ids = self.model.generate(**inputs, max_new_tokens=2048)
+
+        generated = output_ids[:, inputs.input_ids.shape[1]:]
+        text = self.processor.batch_decode(
+            generated, skip_special_tokens=True
+        )[0].strip()
+
+        confidence = 0.85 if text else 0.0
+
+        logger.info(
+            "Qari-OCR: extracted %d chars, confidence %.2f",
+            len(text), confidence,
+        )
+
+        return OCRResult(
+            engine="qari",
+            text=text,
+            confidence=confidence,
+            word_confidences=[confidence],
+            raw_data={"model": self.MODEL_ID},
+        )
+
+
 class OCREngineManager:
     """
     Manages multiple OCR engines and combines their results.
@@ -211,6 +442,9 @@ class OCREngineManager:
         OCREngine.TESSERACT: TesseractOCR,
         OCREngine.EASYOCR: EasyOCREngine,
         OCREngine.PADDLEOCR: PaddleOCREngine,
+        OCREngine.CLAUDE_VISION: ClaudeVisionOCR,
+        OCREngine.OPENAI_VISION: OpenAIVisionOCR,
+        OCREngine.QARI: QariOCR,
     }
 
     def __init__(self, config: OCRConfig):
@@ -234,7 +468,8 @@ class OCREngineManager:
         if not self.engines:
             raise RuntimeError(
                 "No OCR engines available. Install at least one of: "
-                "pytesseract, easyocr, paddleocr"
+                "easyocr, pytesseract, paddleocr, anthropic (for claude_vision), "
+                "transformers+torch (for qari)"
             )
 
     def extract_text(self, image: np.ndarray) -> tuple[str, float, list[OCRResult]]:

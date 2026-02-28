@@ -12,6 +12,9 @@ class OCREngine(Enum):
     TESSERACT = "tesseract"
     EASYOCR = "easyocr"
     PADDLEOCR = "paddleocr"
+    CLAUDE_VISION = "claude_vision"
+    OPENAI_VISION = "openai_vision"
+    QARI = "qari"
 
 
 class TranslationMethod(Enum):
