@@ -39,6 +39,13 @@ class TesseractOCR:
                 "Also install Tesseract binary: sudo apt-get install tesseract-ocr tesseract-ocr-ara"
             )
         self.config = config
+        # Auto-detect Tesseract binary on Windows (Chocolatey install location)
+        import shutil
+        if not shutil.which("tesseract"):
+            import os
+            win_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+            if os.path.isfile(win_path):
+                self.pytesseract.pytesseract.tesseract_cmd = win_path
 
     def extract(self, image: np.ndarray) -> OCRResult:
         """Extract Arabic text using Tesseract."""
