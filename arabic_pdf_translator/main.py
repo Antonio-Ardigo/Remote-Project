@@ -103,8 +103,8 @@ Environment variables for API keys:
     parser.add_argument(
         "--ocr-engines",
         type=str,
-        default="tesseract,easyocr",
-        help="OCR engines to use (comma-separated: tesseract,easyocr,paddleocr)",
+        default="easyocr",
+        help="OCR engines to use (comma-separated: easyocr,tesseract,paddleocr). Default: easyocr",
     )
     parser.add_argument(
         "--no-preprocess",
@@ -287,7 +287,7 @@ def main() -> int:
         )
         return 1
 
-    print(f"Arabic PDF Translator v1.0.0")
+    print(f"Arabic PDF Translator v2.0.0")
     print(f"PDF: {pdf_path}")
     print(f"Translation methods available: {[m.value for m in available]}")
     print(f"Ensemble: {'enabled' if config.enable_ensemble else 'disabled'}")

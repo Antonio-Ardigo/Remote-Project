@@ -23,7 +23,7 @@ Quality Evaluation:
     - Claude-as-judge arbitration for final ranking
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 __author__ = "Arabic PDF Translator Plugin"
 
 from arabic_pdf_translator.config import TranslationConfig
