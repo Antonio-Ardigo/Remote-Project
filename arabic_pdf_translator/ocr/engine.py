@@ -100,15 +100,27 @@ class EasyOCREngine:
 
     def extract(self, image: np.ndarray) -> OCRResult:
         """Extract Arabic text using EasyOCR."""
-        results = self.reader.readtext(image, detail=1, paragraph=True)
+        # Use detail=1, paragraph=False to get (bbox, text, conf) tuples
+        # paragraph=True drops confidence scores in many EasyOCR versions
+        results = self.reader.readtext(image, detail=1, paragraph=False)
 
         texts = []
         confidences = []
-        for bbox, text, conf in results:
-            text = text.strip()
+        for item in results:
+            if len(item) == 3:
+                _bbox, text, conf = item
+            elif len(item) == 2:
+                text, conf = item
+                conf = 0.5  # default if no confidence
+            else:
+                continue
+            text = str(text).strip()
             if text:
                 texts.append(text)
-                confidences.append(float(conf))
+                try:
+                    confidences.append(float(conf))
+                except (ValueError, TypeError):
+                    confidences.append(0.5)
 
         # EasyOCR returns text in reading order — for Arabic RTL,
         # paragraphs within each line are already ordered correctly
