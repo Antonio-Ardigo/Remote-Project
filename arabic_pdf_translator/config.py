@@ -33,7 +33,7 @@ class QualityThreshold(Enum):
 class OCRConfig:
     """OCR processing configuration."""
     engines: list[OCREngine] = field(
-        default_factory=lambda: [OCREngine.TESSERACT, OCREngine.EASYOCR]
+        default_factory=lambda: [OCREngine.EASYOCR]
     )
     dpi: int = 300
     enable_preprocessing: bool = True
